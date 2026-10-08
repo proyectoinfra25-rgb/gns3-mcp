@@ -1,4 +1,4 @@
-"""Async HTTP client for the GNS3 v3 controller REST API.
+"""Async HTTP client for the GNS3 controller REST API.
 
 A single :class:`GNS3Client` instance is shared by all tools. It handles bearer-token
 login, transparent re-authentication on 401, request execution with sensible errors, and
@@ -14,22 +14,30 @@ from typing import Any
 import httpx
 
 from .config import Settings
-from .errors import raise_for_response, wrap_transport_error
+from .errors import GNS3Error, raise_for_response, wrap_transport_error
 
 JSON = Any
 
 
 class GNS3Client:
-    """Thin async wrapper around the GNS3 v3 API."""
+    """Thin async wrapper around the GNS3 v2/v3 API profiles."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._token: str | None = settings.token
         self._lock = asyncio.Lock()
+        basic_auth = None
+        if settings.api_version == "v2":
+            if not settings.username or settings.password is None:
+                raise GNS3Error(
+                    "GNS3 v2 requires GNS3_USERNAME and GNS3_PASSWORD for HTTP Basic auth."
+                )
+            basic_auth = (settings.username, settings.password)
         self._client = httpx.AsyncClient(
             base_url=settings.api_base,
             verify=settings.verify_tls,
             timeout=settings.timeout,
+            auth=basic_auth,
         )
 
     async def aclose(self) -> None:
@@ -59,6 +67,8 @@ class GNS3Client:
         return self._token
 
     async def _auth_header(self) -> dict[str, str]:
+        if self._settings.api_version == "v2":
+            return {}
         if self._token is None:
             async with self._lock:
                 if self._token is None:

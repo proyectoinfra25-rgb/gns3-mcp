@@ -12,7 +12,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..console import ConsoleSession, clean_output
+from ..console import ConsoleSession, clean_output, validate_read_only_command
 from ..errors import GNS3Error
 from ..runtime import get_runtime_settings, read_only
 from ._common import client, resolve_project
@@ -50,6 +50,26 @@ def register(mcp: FastMCP) -> None:
             "console_host": node.get("console_host"),
             "console_port": node.get("console"),
         }
+
+    @mcp.tool
+    async def node_console_diagnostic(
+        node_id: str,
+        command: str,
+        project_id: str | None = None,
+        idle: float = 0.5,
+        max_wait: float = 5.0,
+    ) -> str:
+        """Run one allowlisted show/ping/traceroute command without changing a device."""
+        command = validate_read_only_command(command)
+        pid = resolve_project(project_id)
+        host, port = await _console_target(pid, node_id)
+        timeout = max_wait or get_runtime_settings().console_timeout
+        async with ConsoleSession(host, port, timeout) as sess:
+            await sess.send("")
+            await sess.read_until_quiet(idle=idle, max_wait=2.0)
+            await sess.send(command)
+            out = await sess.read_until_quiet(idle=idle, max_wait=timeout)
+        return clean_output(out)
 
     if read_only():
         return

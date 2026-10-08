@@ -1,4 +1,4 @@
-"""Configuration for the GNS3 v3 MCP server, sourced from environment variables.
+"""Configuration for the GNS3 MCP server, sourced from environment variables.
 
 All settings are read from the process environment (prefix ``GNS3_``) so they can be
 supplied through the MCP client's server declaration (``.mcp.json`` / Claude Desktop JSON)
@@ -6,6 +6,8 @@ or the shell.
 """
 
 from __future__ import annotations
+
+from typing import Any, Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,7 +34,11 @@ class Settings(BaseSettings):
     # --- Controller connection ---
     base_url: str = Field(
         default="http://localhost:3080",
-        description="GNS3 v3 controller base URL (no trailing /v3).",
+        description="GNS3 controller base URL (no trailing API version path).",
+    )
+    api_version: Literal["v2", "v3"] = Field(
+        default="v3",
+        description="GNS3 controller API version used by the client.",
     )
     username: str | None = Field(default=None, description="Controller username for login.")
     password: str | None = Field(default=None, description="Controller password for login.")
@@ -53,6 +59,13 @@ class Settings(BaseSettings):
         description="When true, mutating/destructive tools are not registered.",
     )
 
+    @model_validator(mode="after")
+    def _force_v2_read_only(self) -> "Settings":
+        """The v2 compatibility profile is intentionally read-only."""
+        if self.api_version == "v2":
+            self.read_only = True
+        return self
+
     # --- Console automation ---
     console_timeout: float = Field(
         default=15.0, description="Default read timeout (s) for node console interactions."
@@ -67,8 +80,8 @@ class Settings(BaseSettings):
 
     @property
     def api_base(self) -> str:
-        """Base URL including the ``/v3`` API prefix."""
-        return self.base_url.rstrip("/") + "/v3"
+        """Base URL including the configured API prefix."""
+        return self.base_url.rstrip("/") + f"/{self.api_version}"
 
 
 def get_settings() -> Settings:

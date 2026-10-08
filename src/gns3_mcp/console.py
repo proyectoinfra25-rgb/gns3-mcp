@@ -11,6 +11,38 @@ from __future__ import annotations
 import asyncio
 import re
 
+
+_READ_ONLY_ROOTS = {"show", "ping", "traceroute", "traceroute6"}
+_READ_ONLY_BLOCKED = {
+    "append",
+    "conf",
+    "configure",
+    "copy",
+    "delete",
+    "erase",
+    "interface",
+    "reload",
+    "redirect",
+    "shutdown",
+    "tee",
+    "write",
+}
+
+
+def validate_read_only_command(command: str) -> str:
+    """Validate a single non-mutating diagnostic command for a device console."""
+    cleaned = command.strip()
+    if not cleaned or any(ch in cleaned for ch in ("\r", "\n", ";")):
+        raise ValueError("Only one console command is allowed in read-only mode.")
+    tokens = cleaned.lower().split()
+    if tokens[0] not in _READ_ONLY_ROOTS:
+        raise ValueError(
+            "Read-only console commands must start with show, ping, or traceroute."
+        )
+    if any(token in _READ_ONLY_BLOCKED for token in tokens):
+        raise ValueError("The command contains a mutating or file-writing operation.")
+    return cleaned
+
 # Telnet control bytes.
 IAC = 255
 DONT = 254

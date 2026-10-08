@@ -1,128 +1,95 @@
-# gns3-mcp
+# GNS3 MCP — v2 read-only fork
 
-A full-feature [MCP](https://modelcontextprotocol.io) server for the **GNS3 v3 (3.0)**
-controller REST API. It lets an AI agent (Claude Code / Claude Desktop / any MCP client)
-drive a GNS3 network-emulation lab end-to-end: build topologies, manage device lifecycle,
-snapshot, capture packets, manage templates / computes / images / RBAC, **and automate
-device CLIs over node consoles**.
+An MCP server for inspecting a GNS3 2.2 controller through its `/v2` REST API.
+This fork is intentionally read-only: it does not create, delete, start, stop,
+configure, snapshot, capture, or modify GNS3 resources.
 
-Built with **Python + FastMCP**. Ships as a **Claude Code plugin** and as a standalone
-pip-installable MCP server. ~125 tools, 4 resources, and 3 prompts.
+It is designed for topology audits and troubleshooting of an existing lab. The
+only console access exposed is an allowlist of diagnostic commands beginning
+with `show`, `ping`, `traceroute`, or `traceroute6`; configuration-mode and
+shell-like commands are rejected before reaching the device.
 
-## Features
+## Exposed capabilities
 
-| Area | Tools |
-| --- | --- |
-| Controller | version, statistics, reload/shutdown, IOU license |
-| Projects | CRUD, open/close/load, duplicate, export/import, lock, files |
-| Nodes | CRUD, create-from-template, start/stop/suspend/reload (single + all), isolate, duplicate, idle-PC, disk/files |
-| Links | CRUD, filters, reset |
-| Console automation | `node_console_send`, `node_console_session`, `node_console_read`, `node_console_info` (telnet) |
-| Packet capture | start/stop, Wireshark restart, pcap download |
-| Snapshots | list / create / restore / delete |
-| Drawings | canvas annotations CRUD |
-| Templates / Appliances | CRUD + duplicate; browse & install appliance catalog |
-| Computes / Images | manage compute servers, query emulators; upload/install/prune images |
-| RBAC | users, groups, roles, privileges, ACL |
-| Resource pools | CRUD + membership |
-| Resources | `gns3://projects`, `gns3://templates`, `gns3://computes`, `gns3://project/{id}/topology` |
-| Prompts | `build_lab`, `troubleshoot_node`, `snapshot_before_change` |
+- Controller version and statistics.
+- Projects and project statistics.
+- Nodes, node details, links, computes, and templates.
+- Console information for a node.
+- Safe diagnostic console commands through `node_console_diagnostic`.
+- MCP resources for the read-only topology views supported by the selected API.
+
+The v2 profile registers only the modules above. The upstream v3 write-capable
+surface is not part of this fork's v2 runtime.
 
 ## Configuration
 
-All settings come from the environment (prefix `GNS3_`):
-
-| Variable | Default | Purpose |
+| Variable | Required | Purpose |
 | --- | --- | --- |
-| `GNS3_BASE_URL` | `http://localhost:3080` | Controller URL (no `/v3`) |
-| `GNS3_USERNAME` / `GNS3_PASSWORD` | – | Login credentials |
-| `GNS3_TOKEN` | – | Pre-issued bearer token (skips login) |
-| `GNS3_VERIFY_TLS` | `true` | Verify TLS for https |
-| `GNS3_DEFAULT_PROJECT` | – | Project id used when a tool omits `project_id` |
-| `GNS3_READ_ONLY` | `false` | Disable all mutating tools (41 read-only tools remain) |
-| `GNS3_TRANSPORT` | `stdio` | `stdio` or `http` |
-| `GNS3_HTTP_HOST` / `GNS3_HTTP_PORT` | `127.0.0.1` / `8080` | HTTP bind |
-| `GNS3_CONSOLE_TIMEOUT` | `15` | Console read timeout (s) |
+| `GNS3_BASE_URL` | yes | Controller URL, for example `http://host:3080`; do not append `/v2`. |
+| `GNS3_USERNAME` / `GNS3_PASSWORD` | yes | HTTP Basic Auth credentials used by GNS3 2.2. |
+| `GNS3_API_VERSION` | no | Must be `v2`; v2 also forces read-only mode. |
+| `GNS3_READ_ONLY` | no | Keep `true`; v2 forces it to `true` even if misconfigured. |
+| `GNS3_VERIFY_TLS` | no | TLS certificate verification; defaults to `true`. |
+| `GNS3_DEFAULT_PROJECT` | no | Project UUID used when a tool omits `project_id`. |
+| `GNS3_CONSOLE_TIMEOUT` | no | Console read timeout in seconds; defaults to `15`. |
 
-## Install
+The v2 client does not call `/access/users/login` and does not use bearer-token
+authentication. Credentials are supplied to the HTTP client as Basic Auth and
+are never returned by MCP tools.
 
-### As a Claude Code plugin
+## Install locally
 
-```
-/plugin marketplace add /home/oscar/Code/gns3-mcp
-/plugin install gns3
-```
-
-The plugin declares the MCP server in `plugin/.mcp.json`; it runs the `gns3-mcp` console
-script, so install the package first (below) or adjust the command to `python -m gns3_mcp`.
-
-### As a standalone MCP server
+From this repository, use an isolated environment when possible:
 
 ```bash
-pip install -e .            # from this repo (or, once published: pipx install gns3-mcp-server)
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[dev]'
 ```
 
-The PyPI distribution is named **`gns3-mcp-server`**; it installs the `gns3-mcp`
-console script (and a `gns3-mcp-server` alias, so `uvx gns3-mcp-server` works too).
-
-Register with Claude Code:
+For a direct local install, the package provides the `gns3-mcp` command:
 
 ```bash
-claude mcp add gns3 -- gns3-mcp
-# then set env: GNS3_BASE_URL, GNS3_USERNAME, GNS3_PASSWORD
+GNS3_API_VERSION=v2 GNS3_READ_ONLY=true \
+GNS3_BASE_URL=http://gns3-host:3080 \
+GNS3_USERNAME=admin GNS3_PASSWORD='…' \
+gns3-mcp
 ```
 
-Or in Claude Desktop config:
+## Register in Codex
 
-```json
-{
-  "mcpServers": {
-    "gns3": {
-      "command": "gns3-mcp",
-      "env": {
-        "GNS3_BASE_URL": "http://localhost:3080",
-        "GNS3_USERNAME": "admin",
-        "GNS3_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
-Run as a remote HTTP server instead:
+The repository includes a Claude-compatible plugin manifest at
+`plugin/.mcp.json`. For a direct Codex stdio registration, use the installed
+command and supply credentials through the environment rather than committing
+them to a file:
 
 ```bash
-GNS3_TRANSPORT=http GNS3_HTTP_PORT=8080 gns3-mcp
+codex mcp add gns3-readonly \
+  --env GNS3_API_VERSION=v2 \
+  --env GNS3_READ_ONLY=true \
+  --env GNS3_BASE_URL=http://gns3-host:3080 \
+  --env GNS3_USERNAME=admin \
+  --env GNS3_PASSWORD='…' \
+  -- gns3-mcp
 ```
 
-## Safety
+Verify registration with `codex mcp list`. The server uses stdio and starts on
+demand when Codex invokes it; it does not need a permanently running daemon.
 
-- `GNS3_READ_ONLY=true` registers only read-only tools.
-- Destructive tools (`project_delete`, `node_delete` via flow, `controller_shutdown`,
-  `controller_reload`, `images_prune`) require an explicit `confirm=true`.
-- Console automation can run **arbitrary commands** on emulated devices — treat it like
-  shell access to your lab.
+## Safety boundary
 
-## Development
+The v2 configuration forces `read_only=true`. Mutating tool modules are not
+registered, and diagnostic console commands are validated against a strict
+allowlist. This is a read-only inspection bridge, not a mechanism for changing
+the lab.
+
+## Development and verification
 
 ```bash
-pip install -e ".[dev]"
-python -m pytest                 # hermetic unit + tool + console tests (respx-mocked)
-
-# Opt-in live smoke test against a real controller:
-GNS3_LIVE=1 GNS3_BASE_URL=http://localhost:3080 \
-  GNS3_USERNAME=admin GNS3_PASSWORD=... python -m pytest tests/test_live_smoke.py -s
+python -m pytest -q
 ```
 
-Architecture: a single async `GNS3Client` (`client.py`) handles login, 401 re-auth,
-pagination, and binary I/O; every tool module under `tools/` is a thin layer over it and
-exposes `register(mcp)`. `console.py` is a minimal telnet proxy for driving node consoles.
-
-## Contributing & releases
-
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`,
-`fix:`, `feat!:` for breaking changes), which drives automated versioning.
-[release-please](https://github.com/googleapis/release-please) opens a release PR that
-bumps the version and updates [`CHANGELOG.md`](CHANGELOG.md); merging it tags a release and
-publishes to PyPI via Trusted Publishing (after the test suite passes). Full details in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+The tests cover v2 Basic Auth, forced read-only settings, the reduced tool
+profile, and command validation. A live controller smoke test should be run
+only with a real v2 controller and must use non-destructive GET/diagnostic
+operations.

@@ -1,4 +1,4 @@
-"""FastMCP server entry point for the GNS3 v3 controller.
+"""FastMCP server entry point for the read-only GNS3 controller MCP.
 
 Registers every tool module, MCP resources, and prompts, then runs the selected
 transport (stdio by default, streamable-HTTP when GNS3_TRANSPORT=http).
@@ -44,6 +44,18 @@ _TOOL_MODULES = [
     capture,
 ]
 
+# GNS3 2.2 exposes a smaller, older API surface. Keep this fork deliberately
+# narrow for v2: inspection plus safe diagnostic console commands only.
+_V2_READ_ONLY_MODULES = [
+    controller,
+    projects,
+    nodes,
+    links,
+    computes,
+    templates,
+    console,
+]
+
 
 def build_server() -> FastMCP:
     """Construct the FastMCP app with runtime initialised and all modules registered."""
@@ -51,13 +63,13 @@ def build_server() -> FastMCP:
     mcp = FastMCP(
         name="gns3",
         instructions=(
-            "Tools to drive a GNS3 v3 network-emulation controller: build topologies "
-            "(projects, nodes, links), manage device lifecycle, snapshot, capture packets, "
-            "manage templates/computes/images/RBAC, and automate device CLIs over node "
-            "consoles. Open a project with project_open before manipulating its nodes."
+            "Read-only tools for inspecting a GNS3 network-emulation controller: projects, "
+            "nodes, links, computes, topology details, and allowlisted show/ping/traceroute "
+            "commands over node consoles. Do not attempt configuration or lifecycle changes."
         ),
     )
-    for module in _TOOL_MODULES:
+    modules = _V2_READ_ONLY_MODULES if settings.api_version == "v2" else _TOOL_MODULES
+    for module in modules:
         module.register(mcp)
     resources.register(mcp)
 

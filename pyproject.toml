@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gns3-mcp-server"
-version = "0.1.0"
-description = "Full-feature MCP server for the GNS3 v3 (3.0) controller REST API, with device console automation."
+version = "0.2.0"
+description = "Strict read-only MCP server for the GNS3 v2 controller API."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -20,9 +20,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Olaw2jr/gns3-mcp"
-Repository = "https://github.com/Olaw2jr/gns3-mcp"
-Issues = "https://github.com/Olaw2jr/gns3-mcp/issues"
+Homepage = "https://github.com/proyectoinfra25-rgb/gns3-mcp"
+Repository = "https://github.com/proyectoinfra25-rgb/gns3-mcp"
+Issues = "https://github.com/proyectoinfra25-rgb/gns3-mcp/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21", "anyio>=4"]
