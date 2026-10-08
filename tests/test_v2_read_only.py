@@ -68,6 +68,7 @@ async def test_v2_server_registers_no_mutating_tools(monkeypatch):
     assert "node_start" not in tools
     assert "capture_start" not in tools
     assert "access_user_create" not in tools
+    assert "project_locked" not in tools
     await runtime.shutdown()
 
 

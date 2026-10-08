@@ -6,7 +6,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..runtime import read_only
+from ..runtime import get_runtime_settings, read_only
 from ._common import client, resolve_project
 
 
@@ -34,11 +34,12 @@ def register(mcp: FastMCP) -> None:
         pid = resolve_project(project_id)
         return await client().get(f"/projects/{pid}/stats")
 
-    @mcp.tool
-    async def project_locked(project_id: str | None = None) -> bool:
-        """Return whether the project is currently locked."""
-        pid = resolve_project(project_id)
-        return await client().get(f"/projects/{pid}/locked")
+    if get_runtime_settings().api_version != "v2":
+        @mcp.tool
+        async def project_locked(project_id: str | None = None) -> bool:
+            """Return whether the project is currently locked."""
+            pid = resolve_project(project_id)
+            return await client().get(f"/projects/{pid}/locked")
 
     if read_only():
         return
