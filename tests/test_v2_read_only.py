@@ -99,7 +99,13 @@ async def test_v2_statistics_preserves_list_shape_through_mcp(monkeypatch):
 
 @pytest.mark.parametrize(
     "command",
-    ["show ip route", "show running-config | include ospf", "ping 10.10.50.20"],
+    [
+        "show ip route",
+        "show ip interface brief",
+        "show policy-map interface",
+        "show running-config | include ospf",
+        "ping 10.10.50.20",
+    ],
 )
 def test_read_only_console_allows_diagnostic_commands(command):
     assert validate_read_only_command(command) == command

@@ -20,10 +20,8 @@ _READ_ONLY_BLOCKED = {
     "copy",
     "delete",
     "erase",
-    "interface",
     "reload",
     "redirect",
-    "shutdown",
     "tee",
     "write",
 }
