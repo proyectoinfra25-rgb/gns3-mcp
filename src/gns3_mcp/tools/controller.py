@@ -17,7 +17,7 @@ def register(mcp: FastMCP) -> None:
         return await client().get("/version")
 
     @mcp.tool
-    async def gns3_statistics() -> dict[str, Any]:
+    async def gns3_statistics() -> list[dict[str, Any]]:
         """Return controller-wide statistics (counts of projects, computes, etc.)."""
         return await client().get("/statistics")
 

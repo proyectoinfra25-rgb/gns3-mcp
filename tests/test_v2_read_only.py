@@ -71,6 +71,31 @@ async def test_v2_server_registers_no_mutating_tools(monkeypatch):
     await runtime.shutdown()
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_v2_statistics_preserves_list_shape_through_mcp(monkeypatch):
+    monkeypatch.setenv("GNS3_API_VERSION", "v2")
+    monkeypatch.setenv("GNS3_BASE_URL", BASE)
+    monkeypatch.setenv("GNS3_USERNAME", "admin")
+    monkeypatch.setenv("GNS3_PASSWORD", "secret")
+    respx.get(f"{BASE}/v2/statistics").mock(
+        return_value=httpx.Response(200, json=[{"compute_id": "local", "statistics": {}}])
+    )
+
+    import gns3_mcp.runtime as runtime
+    from fastmcp import Client
+    from gns3_mcp.server import build_server
+
+    runtime._client = None
+    runtime._settings = None
+    server = build_server()
+    async with Client(server) as client:
+        result = await client.call_tool("gns3_statistics")
+    await runtime.shutdown()
+
+    assert "compute_id" in result.content[0].text
+
+
 @pytest.mark.parametrize(
     "command",
     ["show ip route", "show running-config | include ospf", "ping 10.10.50.20"],
